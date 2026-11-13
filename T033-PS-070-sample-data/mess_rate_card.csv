@@ -1,0 +1,9 @@
+item_code,description,unit,price
+VEG_DAY,Veg plan per day,day,150.00
+NONVEG_DAY,Non-veg plan per day,day,180.00
+GUEST_MEAL,Guest meal,meal,80.00
+EGG_CURRY,Egg curry (extra),plate,35.00
+CHICKEN_CURRY,Chicken curry (extra),plate,90.00
+FRESH_JUICE,Fresh juice,glass,30.00
+CURD_CUP,Curd cup,cup,15.00
+SPECIAL_DINNER,Festival special dinner,plate,120.00
