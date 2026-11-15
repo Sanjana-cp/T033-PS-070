@@ -475,8 +475,15 @@ class RoomLifecycleEngine:
             raise ValueError("Damage charges cannot be negative.")
         if not reason:
             raise ValueError("Inspection reason is required.")
-        if self.get_student_room(student_id) is None:
-            raise ValueError("Student has no active room.")
+
+        has_active_room = self.get_student_room(student_id) is not None
+        has_vacated = any(
+            record.get("event") == "PERMANENT_VACATE"
+            and record.get("student_id") == student_id
+            for record in self.lifecycle_records
+        )
+        if not has_active_room and not has_vacated:
+            raise ValueError("Student has no active room or prior vacate.")
 
         record = {
             "event": "INSPECTION",
