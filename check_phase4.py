@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from csv_io.csv_reader import load_inputs
 from engines.allotment_engine import AllotmentEngine
+from engines.room_lifecycle_engine import RoomLifecycleEngine
 from models.allotment import Allotment
 from models.hostel import Hostel
 from models.room import Room
@@ -34,8 +35,10 @@ for row in data["applicants"]:
     students[student.student_id] = student
 
 applicants = [
-    Allotment(student_id=student.student_id,
-              application_timestamp=student.application_ts)
+    Allotment(
+        student_id=student.student_id,
+        application_timestamp=student.application_ts,
+    )
     for student in students.values()
 ]
 
@@ -49,43 +52,86 @@ for student_id in ("STU-0553", "STU-0300", "STU-0377", "STU-0631"):
         student_id,
         f"score={engine.calculate_priority(student):.2f}",
         f"status={result.status}",
-        f"hostel={result.assigned_hostel_id}",
         f"room={result.assigned_room_id}",
         f"flags={result.flags}",
     )
+
+lifecycle = RoomLifecycleEngine(students, hostels, engine.allotments)
+
+print("JOIN 15th:", lifecycle.record_join("STU-0586", date(2026, 8, 15)))
+print("JOIN 16th:", lifecycle.record_join("STU-0293", date(2026, 8, 16)))
+
+vacancy = lifecycle.temporary_vacate(
+    "STU-0563",
+    date(2026, 9, 1),
+    date(2026, 11, 29),
+    "INTERNSHIP",
+)
+print(
+    "90-day vacancy:",
+    vacancy["duration"],
+    vacancy["bed_released"],
+    vacancy["rent_percentage"],
+    vacancy["mess_suspended"],
+)
+
+swap = lifecycle.swap_rooms(
+    "STU-0090",
+    "STU-0047",
+    date(2026, 10, 1),
+    agree_rent_difference=True,
+    student1_consent=True,
+    student2_consent=True,
+)
+print("Swap:", swap["event"], swap["billing_rent"])
+
+try:
+    lifecycle.change_room(
+        "STU-0212",
+        "DOUBLE",
+        "2026-FALL",
+        date(2026, 10, 20),
+        outstanding_dues=0,
+        hold=True,
+    )
+except ValueError as error:
+    print("STU-0212 blocked:", error)
+
+inspection = lifecycle.record_inspection(
+    "STU-0048",
+    date(2026, 11, 28),
+    1850,
+    "Broken cupboard door",
+)
+print("Inspection damage:", inspection["damage_charges"])
+
+settlement = lifecycle.permanent_vacate(
+    "STU-0048",
+    date(2026, 11, 28),
+    date(2026, 11, 25),
+    deposit_amount=10000,
+    unpaid_dues=0,
+    damage_charges=lifecycle.inspections["STU-0048"]["damage_charges"],
+)
+print("Settlement damages:", settlement["damages"])
 
 late_allotment = next(
     item for item in results
     if item.status == "ALLOTTED" and item.assigned_room_id
 )
-room = next(
+released_room = next(
     room
     for hostel in hostels.values()
     for room in hostel.rooms
     if room.room_id == late_allotment.assigned_room_id
 )
-occupants_before = set(room.occupants)
+occupants_before = set(released_room.occupants)
 
-outcome = engine.process_deposit_payment(
+late_outcome = engine.process_deposit_payment(
     late_allotment.student_id,
     datetime(2026, 7, 28, 0, 1),
 )
+promoted = set(released_room.occupants) - occupants_before
 
-promoted_students = set(room.occupants) - occupants_before
-
-print("Late payment outcome:", outcome)
-print("Forfeited allotment status:", late_allotment.status)
-print("Promoted into released room:", sorted(promoted_students))
-
-on_time_allotment = next(
-    item for item in results
-    if item.status == "ALLOTTED" and item.deposit_paid_at is None
-)
-
-print(
-    "On-time payment outcome:",
-    engine.process_deposit_payment(
-        on_time_allotment.student_id,
-        datetime(2026, 7, 27, 23, 59, 59),
-    ),
-)
+print("Late deposit:", late_outcome)
+print("Promoted:", sorted(promoted))
