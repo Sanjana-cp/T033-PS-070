@@ -541,7 +541,7 @@ class AllotmentEngine:
             + timedelta(days=7)
         )
 
-        return datetime.combine(deadline_date, time(23,59))
+        return datetime.combine(deadline_date, time(23, 59, 59))
 
 
     
