@@ -79,3 +79,6 @@ def validate_money(value):
         raise ValueError("Amount must be a non-negative finite value.")
 
     return amount.quantize(Decimal("0.01"))
+
+def parse_bool(value):
+    return str(value).strip().lower() == "true"

@@ -1,5 +1,5 @@
-
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import List
 
 
@@ -12,7 +12,7 @@ class Room:
     room_type: str
     beds: int
     ac: bool
-    monthly_rent: float
+    monthly_rent: Decimal
 
     reserved_for: List[str] = field(default_factory=list)
     occupants: List[str] = field(default_factory=list)
@@ -21,18 +21,14 @@ class Room:
         valid_capacities = {
             "SINGLE": 1,
             "DOUBLE": 2,
-            "TRIPLE": 3
+            "TRIPLE": 3,
         }
 
         if self.room_type not in valid_capacities:
-            raise ValueError(
-                f"Invalid room type: {self.room_type}"
-            )
+            raise ValueError(f"Invalid room type: {self.room_type}")
 
         if self.beds != valid_capacities[self.room_type]:
-            raise ValueError(
-                "Room beds do not match the room type."
-            )
+            raise ValueError("Room beds do not match the room type.")
 
         if self.floor < 0:
             raise ValueError("Floor cannot be negative.")
@@ -41,24 +37,19 @@ class Room:
             raise ValueError("Monthly rent cannot be negative.")
 
         if len(self.occupants) > self.capacity:
-            raise ValueError(
-                "Initial occupants cannot exceed room capacity."
-            )
+            raise ValueError("Initial occupants cannot exceed room capacity.")
 
         if len(self.occupants) != len(set(self.occupants)):
-            raise ValueError(
-                "Duplicate students cannot occupy the same room."
-            )
+            raise ValueError("Duplicate students cannot occupy the same room.")
 
     @property
     def capacity(self) -> int:
         return self.beds
 
     @property
-    def effective_monthly_rent(self) -> float:
+    def effective_monthly_rent(self) -> Decimal:
         if self.ac:
-            return self.monthly_rent * 1.5
-
+            return self.monthly_rent * Decimal("1.5")
         return self.monthly_rent
 
     def get_available_beds(self) -> int:

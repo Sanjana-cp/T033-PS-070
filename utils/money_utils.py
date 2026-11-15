@@ -52,3 +52,14 @@ def calculate_percentage(amount, percentage):
 
 def format_money(amount):
     return f"{round_money(amount):.2f}"
+
+def to_money(value):
+    return round_money(value)
+
+
+def percent_of(amount, pct):
+    return calculate_percentage(amount, pct)
+
+
+def fmt_money(value):
+    return format_money(value)
