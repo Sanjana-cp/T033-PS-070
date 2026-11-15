@@ -24,6 +24,9 @@ class RoomLifecycleEngine:
         # Records room lifecycle events for billing integration.
         self.lifecycle_records = []
 
+        self.join_dates = {}
+        self.inspections = {}
+
     # --------------------------------------------------
     # HELPER METHODS
     # --------------------------------------------------
@@ -109,9 +112,9 @@ class RoomLifecycleEngine:
         requested_type,
         semester_id,
         change_date,
-        outstanding_dues=0
+        outstanding_dues=0,
+        hold=False,
     ):
-
         if student_id not in self.students:
             raise ValueError("Unknown student.")
 
@@ -130,6 +133,9 @@ class RoomLifecycleEngine:
         if self.has_outstanding_dues(outstanding_dues):
             raise ValueError("Room change blocked due to outstanding dues.")
 
+        if hold:
+            raise ValueError("Room change blocked due to HOLD.")
+
         if self.temporary_vacancies.get(student_id):
             raise ValueError("Temporarily vacating students cannot change rooms.")
 
@@ -140,12 +146,10 @@ class RoomLifecycleEngine:
             raise ValueError("First-year students cannot occupy SINGLE rooms.")
 
         change_key = (student_id, semester_id)
-
         if change_key in self.room_changes:
             raise ValueError("Room change already used this semester.")
 
         old_room = self.get_student_room(student_id)
-
         if old_room is None:
             raise ValueError("Current room could not be found.")
 
@@ -153,7 +157,6 @@ class RoomLifecycleEngine:
             raise ValueError("Student already occupies this room type.")
 
         new_room = self.find_available_room(student, requested_type)
-
         if new_room is None:
             raise ValueError("No compatible room with available capacity.")
 
@@ -161,11 +164,10 @@ class RoomLifecycleEngine:
         new_room.add_occupant(student_id)
 
         old_room_id = old_room.room_id
-
         allotment.assign_room(
             room_id=new_room.room_id,
             hostel_id=new_room.hostel_id,
-            room_type=new_room.room_type
+            room_type=new_room.room_type,
         )
 
         self.room_changes[change_key] = change_date
@@ -180,14 +182,12 @@ class RoomLifecycleEngine:
             "new_rent": new_room.effective_monthly_rent,
             "billing_rent": max(
                 old_room.effective_monthly_rent,
-                new_room.effective_monthly_rent
-            )
+                new_room.effective_monthly_rent,
+            ),
         }
 
         self.lifecycle_records.append(record)
-
         return record
-
     # --------------------------------------------------
     # 2. ROOM SWAP
     # --------------------------------------------------
@@ -447,6 +447,47 @@ class RoomLifecycleEngine:
     # --------------------------------------------------
     # 5. PERMANENT VACATING AND SETTLEMENT
     # --------------------------------------------------
+    def record_join(self, student_id, join_date):
+        if student_id not in self.students:
+            raise ValueError("Unknown student.")
+        if not isinstance(join_date, date):
+            raise ValueError("Invalid join date.")
+        if self.get_student_room(student_id) is None:
+            raise ValueError("Student has no active room.")
+        if student_id in self.join_dates:
+            raise ValueError("Join date already recorded.")
+
+        self.join_dates[student_id] = join_date
+        record = {
+            "event": "JOIN",
+            "student_id": student_id,
+            "date": join_date,
+        }
+        self.lifecycle_records.append(record)
+        return record
+
+    def record_inspection(self, student_id, inspection_date, damage_charges, reason):
+        if student_id not in self.students:
+            raise ValueError("Unknown student.")
+        if not isinstance(inspection_date, date):
+            raise ValueError("Invalid inspection date.")
+        if damage_charges < 0:
+            raise ValueError("Damage charges cannot be negative.")
+        if not reason:
+            raise ValueError("Inspection reason is required.")
+        if self.get_student_room(student_id) is None:
+            raise ValueError("Student has no active room.")
+
+        record = {
+            "event": "INSPECTION",
+            "student_id": student_id,
+            "date": inspection_date,
+            "damage_charges": damage_charges,
+            "reason": reason,
+        }
+        self.inspections[student_id] = record
+        self.lifecycle_records.append(record)
+        return record
 
     def permanent_vacate(
         self,
