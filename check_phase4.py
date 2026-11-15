@@ -7,6 +7,8 @@ from models.allotment import Allotment
 from models.hostel import Hostel
 from models.room import Room
 from models.student import Student
+from engines.billing_engine import BillingEngine
+from decimal import Decimal
 
 
 data = load_inputs("T033-PS-070-sample-data")
@@ -44,6 +46,121 @@ applicants = [
 
 engine = AllotmentEngine(students, hostels)
 results = engine.run_allotment(applicants, datetime(2026, 7, 20, 10, 0))
+
+billing = BillingEngine(
+    students,
+    {
+        room.room_id: room
+        for hostel in hostels.values()
+        for room in hostel.rooms
+    },
+    engine.allotments,
+    leave_applications=data["leave_applications"],
+    semester_start_dates={"2026-FALL": date(2026, 8, 1)},
+)
+
+print(
+    "STU-0317 November rebate days:",
+    billing.calculate_rebate(
+        "STU-0317", "2026-FALL", "2026-11", date(2026, 8, 1)
+    ),
+)
+print(
+    "STU-0466 September rebate days:",
+    billing.calculate_rebate(
+        "STU-0466", "2026-FALL", "2026-09", date(2026, 8, 1)
+    ),
+)
+print(
+    "STU-0341 penalty:",
+    billing.calculate_late_penalty("2026-09", date(2026, 11, 9)),
+)
+
+attendance = {
+    (row["student_id"], row["month"]): row["days_present"]
+    for row in data["mess_attendance_monthly"]
+}
+guest_meals = sum(
+    row["quantity"]
+    for row in data["mess_extras"]
+    if row["student_id"] == "STU-0010"
+    and row["date"].strftime("%Y-%m") == "2026-10"
+    and row["item_code"] == "GUEST_MEAL"
+)
+
+room_0010 = billing.get_student_room("STU-0010")
+bill_0010 = billing.generate_bill(
+    "STU-0010",
+    "2026-10",
+    date(2026, 8, 1),
+    attendance.get(("STU-0010", "2026-10"), 0),
+    semester_id="2026-FALL",
+    guest_meals=guest_meals,
+    semester_start_date=date(2026, 8, 1),
+    monthly_rent=room_0010.effective_monthly_rent,
+)
+print("STU-0010 guest meals billed:", bill_0010["guest_meals"])
+
+room_0622 = billing.get_student_room("STU-0622")
+bill_0622 = billing.generate_bill(
+    "STU-0622",
+    "2026-10",
+    date(2026, 8, 1),
+    attendance.get(("STU-0622", "2026-10"), 0),
+    semester_id="2026-FALL",
+    semester_start_date=date(2026, 8, 1),
+    monthly_rent=room_0622.effective_monthly_rent,
+)
+print("STU-0622 flags:", bill_0622["flags"])
+
+print(
+    "STU-0317 semester rebate days:",
+    len(
+        billing.get_eligible_rebate_dates(
+            "STU-0317",
+            "2026-FALL",
+            date(2026, 8, 1),
+        )
+    ),
+)
+
+print(
+    "Join on 15th rent:",
+    billing.calculate_rent(
+        6000, "2026-08", date(2026, 8, 15)
+    ),
+)
+print(
+    "Join on 16th rent:",
+    billing.calculate_rent(
+        6000, "2026-08", date(2026, 8, 16)
+    ),
+)
+
+ac_room = next(
+    room
+    for hostel in hostels.values()
+    for room in hostel.rooms
+    if room.ac
+)
+print(
+    "AC rent multiplier:",
+    ac_room.effective_monthly_rent
+    == ac_room.monthly_rent * Decimal("1.5"),
+)
+
+billing.bills[("STU-0212", "2026-08")] = {
+    "total": Decimal("6000.00"),
+    "penalty": Decimal("0.00"),
+}
+billing.bills[("STU-0212", "2026-09")] = {
+    "total": Decimal("6000.00"),
+    "penalty": Decimal("0.00"),
+}
+print(
+    "Two-month HOLD:",
+    billing.update_hold_status("STU-0212", date(2026, 10, 10)),
+)
 
 for student_id in ("STU-0553", "STU-0300", "STU-0377", "STU-0631"):
     student = students[student_id]
