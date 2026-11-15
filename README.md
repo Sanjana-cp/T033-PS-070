@@ -191,3 +191,11 @@ One row per hostel per PRINT_OCCUPANCY.
 Columns, in order: `date`, `hostel_id`, `beds`, `occupied`, `temporarily_vacant`, `vacant`
 
 Binding choices: allotment `status` ALLOTTED, WAITLISTED, FORFEITED (deposit late), INELIGIBLE; `flags` `;`-separated from NO_PREFERENCE_MATCH, RESERVED_DISABILITY, RESERVED_INTERNATIONAL, NO_ATTENDANCE, HOLD. Mess is billed from the joining date. Priority score to 2 dp.
+
+## Running the project
+
+Use Python 3.10 or newer. From the repository root, activate the project environment and run:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python main.py
